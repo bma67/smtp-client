@@ -1,0 +1,6 @@
+Some use cases for mailx command line:
+
+echo "Hello World !" | mailx -r firstname.lastname@laposte.net -s "Mail for Tests" -S smtp-server=smtp.laposte.net -S smtp-port=587 -S smtp-security=none -S smtp-auth=plain -S smtp-user=firstname.lastname@laposte.net -S smtp-pass=MyPassword -v recipient@gmail.com
+
+echo "Hello World !" | mailx -r firstname.lastname@laposte.net -s "Mail for Tests with OpenSSL" -S smtp-server=smtp.laposte.net -S smtp-port=465 -S smtp-security=tls -S smtp-auth=login -S smtp-user=firstname.lastname@laposte.net -S smtp-pass=MyPassword -S smtp-flag=no-cert-verify -v recipient@gmail.com
+ 
