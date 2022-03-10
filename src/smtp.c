@@ -23,10 +23,12 @@
  */
 
 #if defined(_WIN32) || defined(WIN32)
-# define SMTP_IS_WINDOWS
+#define SMTP_IS_WINDOWS
+#define _CRT_SECURE_NO_WARNINGS
 #endif /* SMTP_IS_WINDOWS */
 
 #ifdef SMTP_IS_WINDOWS
+#pragma comment(lib, "ws2_32.lib")
 # include <winsock2.h>
 # include <ws2tcpip.h>
 #else /* POSIX */
@@ -156,7 +158,11 @@ struct smtp{
   /**
    * Standard network socket connection.
    */
+#ifdef _WIN32
+  SOCKET sock;
+#else
   int sock;
+#endif
 
   /**
    * Read buffer and line parsing structure.
@@ -358,7 +364,7 @@ smtp_str_getdelimfd_read_timeout(struct smtp *const smtp){
   FD_SET(smtp->sock, &readfds);
   timeout.tv_sec  = smtp->timeout_sec;
   timeout.tv_usec = 0;
-  sel_rc = select(smtp->sock + 1, &readfds, NULL, NULL, &timeout);
+  sel_rc = select((int)smtp->sock + 1, &readfds, NULL, NULL, &timeout);
   if(sel_rc < 1){
     return smtp_status_code_set(smtp, SMTP_STATUS_RECV);
   }
@@ -404,7 +410,7 @@ smtp_str_getdelimfd_read(struct str_getdelimfd *const gdfd,
 #endif /* SMTP_OPENSSL */
   }
   else{
-    bytes_read = recv(smtp->sock, buf, count, 0);
+    bytes_read = recv(smtp->sock, buf, (int) count, 0);
   }
   return bytes_read;
 }
@@ -1632,7 +1638,7 @@ smtp_write(struct smtp *const smtp,
 #endif /* SMTP_OPENSSL */
     }
     else{
-      bytes_sent = send(smtp->sock, buf_offset, bytes_to_send, 0);
+      bytes_sent = send(smtp->sock, buf_offset, (int) bytes_to_send, 0);
       if(bytes_sent < 0){
         return smtp_status_code_set(smtp, SMTP_STATUS_SEND);
       }
@@ -1730,12 +1736,12 @@ smtp_connect(struct smtp *const smtp,
   }
 
   for(res = res0; res; res = res->ai_next){
-    smtp->sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    smtp->sock = (int) socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if(smtp->sock < 0){
       continue;
     }
 
-    if(connect(smtp->sock, res->ai_addr, res->ai_addrlen) < 0){
+    if(connect(smtp->sock, res->ai_addr, (int) res->ai_addrlen) < 0){
 #ifdef SMTP_IS_WINDOWS
       closesocket(smtp->sock);
 #else /* POSIX */
@@ -1816,7 +1822,7 @@ smtp_tls_init(struct smtp *const smtp,
     return -1;
   }
 
-  if((smtp->tls_bio = BIO_new_socket(smtp->sock, 0)) == NULL){
+  if((smtp->tls_bio = BIO_new_socket((int)smtp->sock, 0)) == NULL){
     SSL_CTX_free(smtp->tls_ctx);
     SSL_free(smtp->tls);
     return -1;

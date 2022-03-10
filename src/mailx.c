@@ -16,13 +16,27 @@
  */
 #define _POSIX_C_SOURCE 200809L
 
-#include <err.h>
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
+#include  <io.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#ifdef _WIN32
+#include "err.h"
+#include "getopt.h"
+#else
 #include <unistd.h>
+#include <err.h>
+#endif
 
 #include "smtp.h"
+
 
 /**
  * Stores the to and from email addresses.
@@ -221,42 +235,55 @@ mailx_address_append(struct mailx *const mailx,
  *
  * @param[in] mailx Email context.
  */
-static void
-mailx_send(struct mailx *const mailx){
-  int rc;
+static enum smtp_status_code
+mailx_send(struct mailx *const mailx)
+{
+  enum smtp_status_code rc;
   size_t i;
   const struct mailx_address *address;
   const struct mailx_attachment *attachment;
 
-  smtp_open(mailx->server,
-            mailx->port,
-            mailx->connection_security,
-            mailx->smtp_flags,
-            NULL,
-            &mailx->smtp);
+  rc = smtp_open(mailx->server,
+				mailx->port,
+				mailx->connection_security,
+				mailx->smtp_flags,
+				NULL,
+				&mailx->smtp);
+  
+  if (rc == SMTP_STATUS_OK)
+  {
+	  rc = smtp_auth(mailx->smtp,
+				  mailx->auth_method,
+				  mailx->user,
+				  mailx->pass);
 
-  smtp_auth(mailx->smtp,
-            mailx->auth_method,
-            mailx->user,
-            mailx->pass);
+	  if (rc == SMTP_STATUS_OK)
+	  {
+		  for (i = 0; i < mailx->num_address; i++)
+		  {
+			  address = &mailx->address_list[i];
+			  smtp_address_add(mailx->smtp, address->address_type, address->email, NULL);
+		  }
 
-  for(i = 0; i < mailx->num_address; i++){
-    address = &mailx->address_list[i];
-    smtp_address_add(mailx->smtp, address->address_type, address->email, NULL);
+		  for (i = 0; i < mailx->num_attachment; i++)
+		  {
+			  attachment = &mailx->attachment_list[i];
+			  smtp_attachment_add_path(mailx->smtp, attachment->name, attachment->path);
+		  }
+
+		  smtp_header_add(mailx->smtp, "Subject", mailx->subject);
+		  rc = smtp_mail(mailx->smtp, mailx->body);
+	  }
+
+	  smtp_close(mailx->smtp);
   }
 
-  for(i = 0; i < mailx->num_attachment; i++){
-    attachment = &mailx->attachment_list[i];
-    smtp_attachment_add_path(mailx->smtp, attachment->name, attachment->path);
-  }
-  smtp_header_add(mailx->smtp, "Subject", mailx->subject);
-  smtp_mail(mailx->smtp, mailx->body);
-
-  rc = smtp_close(mailx->smtp);
-
-  if(rc != SMTP_STATUS_OK){
+  if(rc != SMTP_STATUS_OK)
+  {
     errx(1, "%s", smtp_status_code_errstr(rc));
   }
+
+  return rc;
 }
 
 /**
@@ -269,18 +296,21 @@ mailx_send(struct mailx *const mailx){
 static void
 mailx_append_attachment(struct mailx *const mailx,
                         const char *const filename,
-                        const char *const path){
+                        const char *const path)
+{
   struct mailx_attachment *new_attachment;
   size_t new_attachment_list_sz;
 
-  if(filename == NULL || path == NULL){
+  if(filename == NULL || path == NULL)
+  {
     errx(1, "must provide attachment with valid name:path");
   }
 
   new_attachment_list_sz = (mailx->num_attachment + 1) *
                            sizeof(*mailx->attachment_list);
   if((mailx->attachment_list = realloc(mailx->attachment_list,
-                                       new_attachment_list_sz)) == NULL){
+                                       new_attachment_list_sz)) == NULL)
+  {
     err(1, "realloc: attachment list");
   }
   new_attachment = &mailx->attachment_list[mailx->num_attachment];
@@ -297,25 +327,38 @@ mailx_append_attachment(struct mailx *const mailx,
  * Parse the file name and path and attach it to the @p mailx context.
  *
  * @param[in] mailx      Store the attachment details into this mailx context.
- * @param[in] attach_arg String with format: 'filename:filepath'.
+ * @param[in] filepath   Full path of the attachment
  */
 static void
 mailx_append_attachment_arg(struct mailx *const mailx,
-                            const char *const attach_arg){
-  char *attach_arg_dup;
+                            const char *const filepath)
+{
+  struct _stat filestat;
   char *filename;
-  char *filepath;
 
-  if((attach_arg_dup = strdup(attach_arg)) == NULL){
-    err(1, "strdup: %s", attach_arg);
+  if (_stat(filepath, &filestat) == -1)
+  {
+	  err(1, "_stat: %s", filepath);
   }
 
-  filename = strtok(attach_arg_dup, ":");
-  filepath = strtok(NULL, ":");
+  if (filestat.st_mode & _S_IFDIR)
+  {
+	  err(1, "%s is a directory, not a file.", filepath);
+  }
+
+  if (_access(filepath, 0x04) == -1)
+  {
+	  err(1, "_access: %s", filepath);
+  }
+
+  char fname [_MAX_FNAME * 2];
+  char fext  [_MAX_EXT  ];
+  _splitpath(filepath, NULL, NULL, fname, fext);
+
+  filename = fname ;
+  strcat(filename, fext);
 
   mailx_append_attachment(mailx, filename, filepath);
-
-  free(attach_arg_dup);
 }
 
 /**
@@ -336,7 +379,7 @@ mailx_parse_smtp_option(struct mailx *const mailx,
 
   rc = 0;
 
-  if((optdup = strdup(option)) == NULL){
+  if((optdup = _strdup(option)) == NULL){
     err(1, "strdup: option: %s", option);
   }
 
@@ -393,27 +436,27 @@ mailx_parse_smtp_option(struct mailx *const mailx,
     }
   }
   else if(strcmp(opt_key, "smtp-server") == 0){
-    if((mailx->server = strdup(opt_value)) == NULL){
+    if((mailx->server = _strdup(opt_value)) == NULL){
       err(1, "strdup");
     }
   }
   else if(strcmp(opt_key, "smtp-port") == 0){
-    if((mailx->port = strdup(opt_value)) == NULL){
+    if((mailx->port = _strdup(opt_value)) == NULL){
       err(1, "strdup");
     }
   }
   else if(strcmp(opt_key, "smtp-user") == 0){
-    if((mailx->user = strdup(opt_value)) == NULL){
+    if((mailx->user = _strdup(opt_value)) == NULL){
       err(1, "strdup");
     }
   }
   else if(strcmp(opt_key, "smtp-pass") == 0){
-    if((mailx->pass = strdup(opt_value)) == NULL){
+    if((mailx->pass = _strdup(opt_value)) == NULL){
       err(1, "strdup");
     }
   }
   else if(strcmp(opt_key, "smtp-from") == 0){
-    if((mailx->from = strdup(opt_value)) == NULL){
+    if((mailx->from = _strdup(opt_value)) == NULL){
       err(1, "strdup");
     }
   }
@@ -459,12 +502,57 @@ mailx_free(const struct mailx *const mailx){
 }
 
 /**
+ * Print usage oth this program with detailed options.
+ *
+ */
+void print_usage(const char* program_name)
+{
+#ifdef SMTP_OPENSSL
+	printf("This program is built with support of OpenSSL related features.\n\n");
+#else
+	printf("This program build does not implement OpenSSL related features.\n\n");
+#endif
+
+	printf("Usage: %s [options] -r from_address to_address.\n\n", program_name);
+
+	printf ("This program supports the following options :\n"
+	"-a file    - Attach the given file to the message.\n"
+	"-b address - Send blind carbon copies to list.List should be a comma - separated list of names.\n"
+	"-c address - Send carbon copies to list of users.\n"
+	"-h         - Display this help.\n"
+	"-r address - Set the From address\n"
+	"-s subject - Email subject line.\n"
+	"-v         - Enable verbose mode (display debugging messages)\n"
+	"-S key = value - A key / value pair to set various configuration options, controlling the behavior of the SMTP client connection.\n"
+	"\n"
+    "The following list contains possible options for the -S argument :\n"
+#ifdef SMTP_OPENSSL
+	"-smtp-security - none, tls, starttls\n"
+	"-smtp-auth     - none, plain, login, cram-md5\n"
+#else
+	"-smtp-security - none\n"
+	"-smtp-auth     - none, plain, login\n"
+#endif
+	"-smtp-flag     - debug, no-cert-verify\n"
+	"-smtp-server   - server name or IP address\n"
+	"-smtp-port     - server port number\n"
+	"-smtp-user     - server authentication user name\n"
+	"-smtp-pass     - server authentication user password\n"
+	"-smtp-from     - from email account\n"
+	);
+}
+
+/**
  * Main program entry point for the mailx utility.
  *
  * This program supports the following options:
- *   - -a 'name:path' - Attach a file with name to display to recipient and
- *                      file path pointing to file location on local storage.
+ *   - -a file        - Attach the given file to the message.
+ *   - -b address     - Send blind carbon copies to list. List should be a comma-separated list of names.
+ *   - -c address     - Send carbon copies to list of users.
+ *   - -h             - Display this help.
+ *   - -r address     - Set the From address
  *   - -s subject     - Email subject line.
+ *   - -v             - Enable verbose mode (display debugging messages).
  *   - -S key=value   - A key/value pair to set various configuration options,
  *                      controlling the behavior of the SMTP client connection.
  *
@@ -502,57 +590,85 @@ int main(int argc, char *argv[]){
 
   mailx_init_default_values(&mailx);
 
-  while((rc = getopt(argc, argv, "a:s:S:")) != -1){
-    switch(rc){
+  while((rc = getopt(argc, argv, "a:b:c:hr:s:S:v")) != -1)
+  {
+    switch(rc)
+	{
     case 'a':
       mailx_append_attachment_arg(&mailx, optarg);
       break;
-    case 's':
+	case 'b':
+		mailx_address_append(&mailx, SMTP_ADDRESS_BCC, optarg);
+		break;
+	case 'c':
+		mailx_address_append(&mailx, SMTP_ADDRESS_CC, optarg);
+		break;
+	case 'h':
+		print_usage(argv[0]);
+		exit(0);
+		break;
+	case 'r':
+	  mailx.from = optarg;
+	  break;
+	case 's':
       mailx.subject = optarg;
       break;
     case 'S':
       mailx_parse_smtp_option(&mailx, optarg);
       break;
-    default:
-      return 1;
+	case 'v':
+		mailx.smtp_flags |= SMTP_DEBUG;
+		break;
+	default:
+		printf("Use -h option to display some help.\n");
+		return 1;
     }
   }
   argc -= optind;
   argv += optind;
 
-  if(argc < 1){
-    errx(1, "must provide at least one email destination address");
+  if(argc < 1)
+  {
+    errx(1, "you must provide at least one TO destination address.");
   }
 
-  if(mailx.from == NULL){
-    errx(1, "must provide a FROM address");
+  if(mailx.from == NULL)
+  {
+    errx(1, "you must provide a FROM address.");
   }
 
-  if(mailx.server == NULL){
-    if((mailx.server = strdup("localhost")) == NULL){
+  if(mailx.server == NULL)
+  {
+    if((mailx.server = _strdup("localhost")) == NULL)
+	{
       err(1, "strdup");
     }
   }
 
-  if(mailx.port == NULL){
-    if((mailx.port = strdup("25")) == NULL){
+  if(mailx.port == NULL)
+  {
+    if((mailx.port = _strdup("25")) == NULL)
+	{
       err(1, "strdup");
     }
   }
 
   puts("Reading email body from stdin");
-  if((mailx.body = smtp_ffile_get_contents(stdin, NULL)) == NULL){
-    err(1, "failed to read email body from stdin");
+
+  if((mailx.body = smtp_ffile_get_contents(stdin, NULL)) == NULL)
+  {
+    err(1, "Failed to read email body from stdin.");
   }
 
   mailx_address_append(&mailx, SMTP_ADDRESS_FROM, mailx.from);
 
-  for(i = 0; i < argc; i++){
+  for(i = 0; i < argc; i++)
+  {
     mailx_address_append(&mailx, SMTP_ADDRESS_TO, argv[i]);
   }
 
-  mailx_send(&mailx);
+  rc = mailx_send(&mailx);
   mailx_free(&mailx);
-  return 0;
-}
 
+  return rc;
+}

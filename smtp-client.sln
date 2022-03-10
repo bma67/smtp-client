@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.1705
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mailx", "mailx.vcxproj", "{4E31141F-509D-4E7A-9541-7ECCED41EA20}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug - with OpenSSL|x64 = Debug - with OpenSSL|x64
+		Debug - with OpenSSL|x86 = Debug - with OpenSSL|x86
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release - with OpenSSL|x64 = Release - with OpenSSL|x64
+		Release - with OpenSSL|x86 = Release - with OpenSSL|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug - with OpenSSL|x64.ActiveCfg = Debug - with OpenSSL|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug - with OpenSSL|x64.Build.0 = Debug - with OpenSSL|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug - with OpenSSL|x86.ActiveCfg = Debug - with OpenSSL|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug - with OpenSSL|x86.Build.0 = Debug - with OpenSSL|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug|x64.ActiveCfg = Debug|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug|x64.Build.0 = Debug|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug|x86.ActiveCfg = Debug|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Debug|x86.Build.0 = Debug|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release - with OpenSSL|x64.ActiveCfg = Release - with OpenSSL|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release - with OpenSSL|x64.Build.0 = Release - with OpenSSL|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release - with OpenSSL|x86.ActiveCfg = Release - with OpenSSL|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release - with OpenSSL|x86.Build.0 = Release - with OpenSSL|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release|x64.ActiveCfg = Release|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release|x64.Build.0 = Release|x64
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release|x86.ActiveCfg = Release|Win32
+		{4E31141F-509D-4E7A-9541-7ECCED41EA20}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7E6237E6-8A06-4ED9-B11B-BD0CE550D33D}
+	EndGlobalSection
+EndGlobal
